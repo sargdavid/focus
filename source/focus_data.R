@@ -92,7 +92,9 @@ for (i in 8:20) {
               col = "black") +
     geom_point(size = 3,
                alpha = 0.5) +
-    theme(legend.position = "none") +
+    theme(legend.position = "none",
+          axis.text.x = element_text(angle = 45,
+                                     hjust = 1)) +
     scale_x_continuous("Chronological Age (Months)") +
     scale_y_continuous(names(dt1)[i])
   print(p1)
