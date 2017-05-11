@@ -407,7 +407,7 @@ tiff(filename = "tmp/est_18over.tiff",
      units = 'in',
      res = 300,
      compression = "lzw+p")
-ggplot(est.over36,
+ggplot(est.18over,
        aes(x = test,
            y = est,
            colour = test,
