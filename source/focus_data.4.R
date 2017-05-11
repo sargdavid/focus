@@ -16,7 +16,8 @@ trt.anno <- fread(file = file.path(DATA_HOME, "key for abbreviations.csv"))
 
 # Load data----
 ## 1. EHT----
-eht <- data.table(read.xlsx(file = file.path(DATA_HOME, "de-identified EHT.xlsx"),
+eht <- data.table(read.xlsx(file = file.path(DATA_HOME, 
+                                             "de-identified EHT Clean.xlsx"),
                             sheetName = "All Visits",
                             rowIndex = 1:214,
                             colIndex = c(1, 3, 6:21)))
@@ -26,7 +27,8 @@ eht$Group <- "EHT"
 eht
 
 ## 2. No EHT----
-noeht <- data.table(read.xlsx(file = file.path(DATA_HOME, "de-identified No EHT.xlsx"),
+noeht <- data.table(read.xlsx(file = file.path(DATA_HOME,
+                                               "de-identified No EHT Clean.xlsx"),
                               sheetName = "All visits",
                               rowIndex = 1:297,
                               colIndex = c(1, 3, 6:21)))
@@ -108,7 +110,7 @@ d1836 <- droplevels(subset(dt1, CA.in.Months >= 18 & CA.in.Months <= 36))
 d1836
 
 # Plots
-for (i in 5:13) {
+for (i in 5:12) {
   tmp <- d1836[, c(1, 4, i, 19, 21), with = FALSE]
   names(tmp) <- c("id", "month", "y", "grp", "year")
   tmp <- subset(tmp, !is.na(tmp$y))
@@ -152,15 +154,65 @@ for (i in 5:13) {
 }
 
 # Mixed effect
-# c(5:13)
-i=13
-tmp <- droplevels(d1836[Group != "Control", c(1, 4, i, 19, 21), with = FALSE])
+out.1836 <- list()
+for (i in 5:12) {
+  tmp <- droplevels(d1836[Group != "Control", c(1, 4, i, 19, 21), with = FALSE])
+  names(tmp) <- c("id", "month", "y", "grp", "year")
+  tmp <- subset(tmp, !is.na(tmp$y))
+  out.1836[[i - 4]] <- summary(lmer(y ~ grp + (1 | id) + (1 | year), data = tmp))
+  names(out.1836)[i - 4] <- trt.anno$`Full Name`[i - 4]
+}
+out.1836
+
+tmp <- out.1836[[2]]$coefficients
 tmp
-names(tmp) <- c("id", "month", "y", "grp", "year")
-tmp <- subset(tmp, !is.na(tmp$y))
-m1 <- lmer(y ~ grp + (1 | id) + (1 | year), data = tmp)
-summary(m1)
-trt.anno$`Full Name`
+1.96*tmp[2, 2]/sqrt(tmp[2, 3])
+
+est.1826 <- lapply(out.1836, 
+                   function(a) {
+                     tmp <- a$coefficients
+                     c(est = tmp[2, 1],
+                       lb = tmp[2, 1] - 1.96*tmp[2, 2],
+                       ub = tmp[2, 1] + 1.96*tmp[2, 2],
+                       pval = tmp[2, 5])
+                   })
+est.1826 <- do.call("rbind", 
+                    est.1826)
+tmp <- rownames(est.1826)
+est.1826 <- data.table(test = tmp,
+                       est.1826)
+est.1826$test <- factor(est.1826$test,
+                        levels = unique(est.1826$test))
+
+# Plot estimates
+tiff(filename = "tmp/est_18to36mo.tiff",
+     height = 8,
+     width = 6,
+     units = 'in',
+     res = 300,
+     compression = "lzw+p")
+ggplot(est.1826,
+       aes(x = test,
+           y = est,
+           colour = test,
+           group = test)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymax = lb,
+                    ymin = ub),
+                width =.4,
+                size = 1) +
+  geom_hline(yintercept = 0,
+             linetype = "dashed") +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 75,
+                                   hjust = 1)) +
+  scale_x_discrete("Test") +
+  scale_y_continuous("Mean Difference") +
+  ggtitle("18 to 36 Month") +
+  guides(fill = guide_legend(title = "Treatment",
+                             title.position = "top",
+                             nrow = 1))
+graphics.off()
 
 # Over 36 mo----
 dover36 <- droplevels(subset(dt1, CA.in.Months > 36))
@@ -210,7 +262,62 @@ for (i in c(5, 6, 9, 10, 14:18)) {
 }
 
 # Mixed effect
-# c(5, 6, 9, 10, 14:18)
+out.over36 <- list()
+for (i in c(5, 6, 9, 10, 14:18)) {
+  tmp <- droplevels(dover36[Group != "Control", c(1, 4, i, 19, 21), with = FALSE])
+  names(tmp) <- c("id", "month", "y", "grp", "year")
+  tmp <- subset(tmp, !is.na(tmp$y))
+  out.over36[[i - 4]] <- summary(lmer(y ~ grp + (1 | id) + (1 | year), data = tmp))
+  names(out.over36)[i - 4] <- trt.anno$`Full Name`[i - 4]
+}
+
+est.over36 <- lapply(out.over36, 
+                   function(a) {
+                     tmp <- a$coefficients
+                     c(est = tmp[2, 1],
+                       lb = tmp[2, 1] - 1.96*tmp[2, 2],
+                       ub = tmp[2, 1] + 1.96*tmp[2, 2],
+                       pval = tmp[2, 5])
+                   })
+est.over36 <- do.call("rbind", 
+                    est.over36)
+tmp <- rownames(est.over36)
+est.over36 <- data.table(test = tmp,
+                       est.over36)
+est.over36$test <- factor(est.over36$test,
+                        levels = unique(est.over36$test))
+
+# Plot estimates
+tiff(filename = "tmp/est_over36mo.tiff",
+     height = 8,
+     width = 6,
+     units = 'in',
+     res = 300,
+     compression = "lzw+p")
+ggplot(est.over36,
+       aes(x = test,
+           y = est,
+           colour = test,
+           group = test)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymax = lb,
+                    ymin = ub),
+                width =.4,
+                size = 1) +
+  geom_hline(yintercept = 0,
+             linetype = "dashed") +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 75,
+                                   hjust = 1)) +
+  scale_x_discrete("Test") +
+  scale_y_continuous("Mean Difference") +
+  ggtitle("Over 36 Month") +
+  guides(fill = guide_legend(title = "Treatment",
+                             title.position = "top",
+                             nrow = 1))
+graphics.off()
+
+
 i=18
 tmp <- droplevels(dover36[Group != "Control", c(1, 4, i, 19, 21), with = FALSE])
 tmp
@@ -268,12 +375,57 @@ for (i in c(5, 6, 9, 10)) {
 }
 
 # Mixed effect
-# c(5, 6, 9, 10)
-i=10
-tmp <- droplevels(d18over[Group != "Control", c(1, 4, i, 19, 21), with = FALSE])
-tmp
-names(tmp) <- c("id", "month", "y", "grp", "year")
-tmp <- subset(tmp, !is.na(tmp$y))
-m1 <- lmer(y ~ grp + (1 | id) + (1 | year), data = tmp)
-summary(m1)
-trt.anno$`Full Name`
+out.18over <- list()
+for (i in c(5, 6, 9, 10)) {
+  tmp <- droplevels(d18over[Group != "Control", c(1, 4, i, 19, 21), with = FALSE])
+  names(tmp) <- c("id", "month", "y", "grp", "year")
+  tmp <- subset(tmp, !is.na(tmp$y))
+  out.18over[[i - 4]] <- summary(lmer(y ~ grp + (1 | id) + (1 | year), data = tmp))
+  names(out.18over)[i - 4] <- trt.anno$`Full Name`[i - 4]
+}
+
+est.18over <- lapply(out.18over, 
+                     function(a) {
+                       tmp <- a$coefficients
+                       c(est = tmp[2, 1],
+                         lb = tmp[2, 1] - 1.96*tmp[2, 2],
+                         ub = tmp[2, 1] + 1.96*tmp[2, 2],
+                         pval = tmp[2, 5])
+                     })
+est.18over <- do.call("rbind", 
+                      est.18over)
+tmp <- rownames(est.18over)
+est.18over <- data.table(test = tmp,
+                         est.18over)
+est.18over$test <- factor(est.18over$test,
+                          levels = unique(est.18over$test))
+
+# Plot estimates
+tiff(filename = "tmp/est_18over.tiff",
+     height = 8,
+     width = 6,
+     units = 'in',
+     res = 300,
+     compression = "lzw+p")
+ggplot(est.over36,
+       aes(x = test,
+           y = est,
+           colour = test,
+           group = test)) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymax = lb,
+                    ymin = ub),
+                width =.4,
+                size = 1) +
+  geom_hline(yintercept = 0,
+             linetype = "dashed") +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 75,
+                                   hjust = 1)) +
+  scale_x_discrete("Test") +
+  scale_y_continuous("Mean Difference") +
+  ggtitle("18 Month and Over") +
+  guides(fill = guide_legend(title = "Treatment",
+                             title.position = "top",
+                             nrow = 1))
+graphics.off()
