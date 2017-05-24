@@ -430,7 +430,7 @@ for (i in c(5, 6, 9, 10)) {
 }
 out.N.18over <- do.call("rbind", out.N.18over)
 out.N.18over <- data.table(Scale = trt.anno[c(5, 6, 9, 10) - 4, 2],
-                           Age = "18 to 36 month",
+                           Age = "18 month and over",
                            out.N.18over)
 out.N.18over
 
